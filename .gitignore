@@ -1,0 +1,25 @@
+# build artifacts
+*~
+*.o
+*.d
+*.asm
+*.sym
+vectors/
+kernel/kernel
+mkfs/mkfs
+fs.img
+xv6.img
+*.out
+*.zip
+pc.cache
+.gdbinit
+
+# toolchains + QEMU (userspace, gitignored)
+tools/
+
+# bench outputs
+bench/*.tmp
+
+# python
+__pycache__/
+*.pyc
