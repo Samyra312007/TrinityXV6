@@ -1,0 +1,48 @@
+# bench/baseline.txt — Week 1 baseline numbers
+
+Recorded: 2026-09-18 · Host: WSL2 (TCG only, no KVM) · Toolchain: xPack GCC 15.2.0 · QEMU 9.2.4
+Timer: `uptime()` ticks, 1 tick = 10 ms. Iterations chosen so every measurement spans >= 7 ticks,
+except read512 (see note). These are the before/after reference for every later optimization
+(week-3+ threads, week-9 concurrent log, week-11 name cache).
+
+## CPUS=1 (primary, daily-driver config)
+
+| Benchmark | n      | ticks | per-op / throughput  | Notes                                        |
+|-----------|--------|-------|----------------------|----------------------------------------------|
+| syscall   | 200000 |    31 | 1.550 us             | getpid(): pure trap path bound               |
+| fork      |   1000 |     9 | 90.000 us            | fork + child exit + wait                     |
+| openclose |   5000 |     8 | 16.000 us            | open(".") + close: namei + ftable alloc      |
+| create    |    500 |    80 | 1600.000 us          | create+unlink = 2 log commits -> ~0.8 ms/txn |
+| write512  |    200 |    11 | 93.0 KB/s            | 512 B/write, one commit per write            |
+| read512   |    200 |     1 | >= 1024.0 KB/s       | timer-clamped: whole loop < 2 ticks          |
+
+## CPUS=2 (secondary, SMP config)
+
+| Benchmark | n      | ticks | per-op / throughput  | Notes                                        |
+|-----------|--------|-------|----------------------|----------------------------------------------|
+| syscall   | 200000 |    35 | 1.750 us             | +13% vs CPUS=1                               |
+| fork      |   1000 |     7 | 70.000 us            | -22% vs CPUS=1                               |
+| openclose |   5000 |     9 | 18.000 us            | +12% vs CPUS=1                               |
+| create    |    500 |    95 | 1900.000 us          | +19% vs CPUS=1                               |
+| write512  |    200 |    11 | 93.0 KB/s            | unchanged                                    |
+| read512   |    200 |     1 | >= 1024.0 KB/s       | timer-clamped                                |
+
+## Method
+
+- Produced by `bench` (user/bench.c, in UPROGS): run `bench` at the xv6 prompt.
+- CPUS=1 and CPUS=2 are separate `make qemu` boots; host otherwise idle.
+- per-op = ticks / n * 10 ms; throughput = bytes / (ticks * 10 ms).
+- Numbers taken from the week-1 baseline tree (semantically identical to the
+  current tree; later re-measurements append a new dated section below).
+- TCG caveats: absolute numbers are host-dependent; only relative deltas
+  across project versions are meaningful.
+
+## usertests wall time
+
+| Config  | Result            | Wall time | Method                                           |
+|---------|-------------------|-----------|--------------------------------------------------|
+| CPUS=1  | ALL TESTS PASSED  | ~348 s    | full usertests, 5 s poll (incl ~4 s boot)        |
+| CPUS=2  | ALL TESTS PASSED  | ~284 s    | full usertests, 5 s poll (incl ~4 s boot)        |
+| CPUS=1  | ALL TESTS PASSED  | < 556 s   | cross-check run (bounded window)                 |
+
+Re-measure after every phase tag; deltas here are the regression signal.

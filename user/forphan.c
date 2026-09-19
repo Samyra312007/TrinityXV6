@@ -3,7 +3,6 @@
 #include "kernel/fcntl.h"
 #include "user/user.h"
 
-// Create an orphaned file and check if test-xv6.py recovers it.
 
 #define BUFSZ 500
 
@@ -34,7 +33,6 @@ main(int argc, char **argv)
     exit(1);
   }
   printf("wait for kill and reclaim %d\n", st.ino);
-  // sit around until killed
   for (;;)
     pause(1000);
 }

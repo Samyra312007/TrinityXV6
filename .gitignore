@@ -6,6 +6,8 @@
 *.sym
 vectors/
 kernel/kernel
+user/_*
+user/usys.S
 mkfs/mkfs
 fs.img
 xv6.img
@@ -23,3 +25,10 @@ bench/*.tmp
 # python
 __pycache__/
 *.pyc
+
+# local tool state
+.freebuff/
+
+# miscellaneous
+
+project-plan.md

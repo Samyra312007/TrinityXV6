@@ -18,17 +18,10 @@ struct spinlock pid_lock;
 extern void forkret(void);
 static void freeproc(struct proc *p);
 
-extern char trampoline[]; // trampoline.S
+extern char trampoline[];
 
-// helps ensure that wakeups of wait()ing
-// parents are not lost. helps obey the
-// memory model when using p->parent.
-// must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-// Allocate a page for each process's kernel stack.
-// Map it high in memory, followed by an invalid
-// guard page.
 void
 proc_mapstacks(pagetable_t kpgtbl)
 {
@@ -43,7 +36,6 @@ proc_mapstacks(pagetable_t kpgtbl)
   }
 }
 
-// initialize the proc table.
 void
 procinit(void)
 {
@@ -58,9 +50,6 @@ procinit(void)
   }
 }
 
-// Must be called with interrupts disabled,
-// to prevent race with process being moved
-// to a different CPU.
 int
 cpuid()
 {
@@ -68,8 +57,6 @@ cpuid()
   return id;
 }
 
-// Return this CPU's cpu struct.
-// Interrupts must be disabled.
 struct cpu *
 mycpu(void)
 {
@@ -78,7 +65,6 @@ mycpu(void)
   return c;
 }
 
-// Return the current struct proc *, or zero if none.
 struct proc *
 myproc(void)
 {
@@ -102,10 +88,6 @@ allocpid()
   return pid;
 }
 
-// Look in the process table for an UNUSED proc.
-// If found, initialize state required to run in the kernel,
-// and return with p->lock held.
-// If there are no free procs, or a memory allocation fails, return 0.
 static struct proc *
 allocproc(void)
 {
@@ -125,14 +107,12 @@ found:
   p->pid = allocpid();
   p->state = USED;
 
-  // Allocate a trapframe page.
   if ((p->trapframe = (struct trapframe *)kalloc()) == 0) {
     freeproc(p);
     release(&p->lock);
     return 0;
   }
 
-  // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if (p->pagetable == 0) {
     freeproc(p);
@@ -140,8 +120,6 @@ found:
     return 0;
   }
 
-  // Set up new context to start executing at forkret,
-  // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
@@ -149,9 +127,6 @@ found:
   return p;
 }
 
-// free a proc structure and the data hanging from it,
-// including user pages.
-// p->lock must be held.
 static void
 freeproc(struct proc *p)
 {
@@ -170,30 +145,21 @@ freeproc(struct proc *p)
   p->state = UNUSED;
 }
 
-// Create a user page table for a given process, with no user memory,
-// but with trampoline and trapframe pages.
 pagetable_t
 proc_pagetable(struct proc *p)
 {
   pagetable_t pagetable;
 
-  // An empty page table.
   pagetable = uvmcreate();
   if (pagetable == 0)
     return 0;
 
-  // map the trampoline code (for system call return)
-  // at the highest user virtual address.
-  // only the supervisor uses it, on the way
-  // to/from user space, so not PTE_U.
   if (mappages(pagetable, TRAMPOLINE, PGSIZE, (uint64)trampoline,
                PTE_R | PTE_X) < 0) {
     uvmfree(pagetable, 0);
     return 0;
   }
 
-  // map the trapframe page just below the trampoline page, for
-  // trampoline.S.
   if (mappages(pagetable, TRAPFRAME, PGSIZE, (uint64)(p->trapframe),
                PTE_R | PTE_W) < 0) {
     uvmunmap(pagetable, TRAMPOLINE, 1, 0);
@@ -204,8 +170,6 @@ proc_pagetable(struct proc *p)
   return pagetable;
 }
 
-// Free a process's page table, and free the
-// physical memory it refers to.
 void
 proc_freepagetable(pagetable_t pagetable, uint64 sz)
 {
@@ -214,7 +178,6 @@ proc_freepagetable(pagetable_t pagetable, uint64 sz)
   uvmfree(pagetable, sz);
 }
 
-// Set up first user process.
 void
 userinit(void)
 {
@@ -230,8 +193,6 @@ userinit(void)
   release(&p->lock);
 }
 
-// Grow or shrink user memory by n bytes.
-// Return 0 on success, -1 on failure.
 int
 growproc(int n)
 {
@@ -253,8 +214,6 @@ growproc(int n)
   return 0;
 }
 
-// Create a new process, copying the parent.
-// Sets up child kernel stack to return as if from fork() system call.
 int
 kfork(void)
 {
@@ -262,12 +221,10 @@ kfork(void)
   struct proc *np;
   struct proc *p = myproc();
 
-  // Allocate process.
   if ((np = allocproc()) == 0) {
     return -1;
   }
 
-  // Copy user memory from parent to child.
   if (uvmcopy(p->pagetable, np->pagetable, p->sz) < 0) {
     freeproc(np);
     release(&np->lock);
@@ -275,13 +232,10 @@ kfork(void)
   }
   np->sz = p->sz;
 
-  // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
 
-  // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
-  // increment reference counts on open file descriptors.
   for (i = 0; i < NOFILE; i++)
     if (p->ofile[i])
       np->ofile[i] = filedup(p->ofile[i]);
@@ -304,8 +258,6 @@ kfork(void)
   return pid;
 }
 
-// Pass p's abandoned children to init.
-// Caller must hold wait_lock.
 void
 reparent(struct proc *p)
 {
@@ -319,9 +271,6 @@ reparent(struct proc *p)
   }
 }
 
-// Exit the current process.  Does not return.
-// An exited process remains in the zombie state
-// until its parent calls wait().
 void
 kexit(int status)
 {
@@ -330,7 +279,6 @@ kexit(int status)
   if (p == initproc)
     panic("init exiting");
 
-  // Close all open files.
   for (int fd = 0; fd < NOFILE; fd++) {
     if (p->ofile[fd]) {
       struct file *f = p->ofile[fd];
@@ -346,10 +294,8 @@ kexit(int status)
 
   acquire(&wait_lock);
 
-  // Give any children to init.
   reparent(p);
 
-  // Parent might be sleeping in wait().
   wakeup(p->parent);
 
   acquire(&p->lock);
@@ -359,13 +305,10 @@ kexit(int status)
 
   release(&wait_lock);
 
-  // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
 }
 
-// Wait for a child process to exit and return its pid.
-// Return -1 if this process has no children.
 int
 kwait(uint64 addr)
 {
@@ -376,16 +319,13 @@ kwait(uint64 addr)
   acquire(&wait_lock);
 
   for (;;) {
-    // Scan through table looking for exited children.
     havekids = 0;
     for (pp = proc; pp < &proc[NPROC]; pp++) {
       if (pp->parent == p) {
-        // make sure the child isn't still in exit() or swtch().
         acquire(&pp->lock);
 
         havekids = 1;
         if (pp->state == ZOMBIE) {
-          // Found one.
           pid = pp->pid;
           if (addr != 0 &&
               copyout(p->pagetable, p->sz, addr, (char *)&pp->xstate,
@@ -404,27 +344,18 @@ kwait(uint64 addr)
       }
     }
 
-    // No point waiting if we don't have any children.
     if (!havekids || killed(p)) {
       release(&wait_lock);
       return -1;
     }
 
-    // Wait for a child to exit.
-    sleep_prepare(p); //DOC: wait-sleep
+    sleep_prepare(p);
     release(&wait_lock);
     sleep();
     acquire(&wait_lock);
   }
 }
 
-// Per-CPU process scheduler.
-// Each CPU calls scheduler() after setting itself up.
-// Scheduler never returns.  It loops, doing:
-//  - choose a process to run.
-//  - swtch to start running that process.
-//  - eventually that process transfers control
-//    via swtch back to the scheduler.
 void
 scheduler(void)
 {
@@ -433,11 +364,6 @@ scheduler(void)
 
   c->proc = 0;
   for (;;) {
-    // The most recent process to run may have had interrupts
-    // turned off; enable them to avoid a deadlock if all
-    // processes are waiting. Then turn them back off
-    // to avoid a possible race between an interrupt
-    // and wfi.
     intr_on();
     intr_off();
 
@@ -445,37 +371,23 @@ scheduler(void)
     for (p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if (p->state == RUNNABLE) {
-        // Switch to chosen process.  It is the process's job
-        // to release its lock and then reacquire it
-        // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
         swtch(&c->context, &p->context);
 
-        // Don't re-enable interrupts on release.
         mycpu()->intena = 0;
 
-        // Process is done running for now.
-        // It should have changed its p->state before coming back.
         c->proc = 0;
         found = 1;
       }
       release(&p->lock);
     }
     if (found == 0) {
-      // nothing to run; stop running on this core until an interrupt.
       asm volatile("wfi");
     }
   }
 }
 
-// Switch to scheduler.  Must hold only p->lock
-// and have changed proc->state. Saves and restores
-// intena because intena is a property of this
-// kernel thread, not this CPU. It should
-// be proc->intena and proc->noff, but that would
-// break in the few places where a lock is held but
-// there's no process.
 void
 sched(void)
 {
@@ -496,7 +408,6 @@ sched(void)
   mycpu()->intena = intena;
 }
 
-// Give up the CPU for one scheduling round.
 void
 yield(void)
 {
@@ -507,8 +418,6 @@ yield(void)
   release(&p->lock);
 }
 
-// A fork child's very first scheduling by scheduler()
-// will swtch to forkret.
 void
 forkret(void)
 {
@@ -516,34 +425,25 @@ forkret(void)
   static int first = 1;
   struct proc *p = myproc();
 
-  // Still holding p->lock from scheduler.
   release(&p->lock);
 
   if (__atomic_load_n(&first, __ATOMIC_ACQUIRE)) {
-    // File system initialization must be run in the context of a
-    // regular process (e.g., because it calls sleep), and thus cannot
-    // be run from main().
     fsinit(ROOTDEV);
 
-    // ensure other cores see first=0.
     __atomic_store_n(&first, 0, __ATOMIC_RELEASE);
 
-    // We can invoke kexec() now that file system is initialized.
-    // Put the return value (argc) of kexec into a0.
     p->trapframe->a0 = kexec("/init", (char *[]){"/init", 0});
     if (p->trapframe->a0 == -1) {
       panic("exec");
     }
   }
 
-  // return to user space, mimicing usertrap()'s return.
   prepare_return();
   uint64 satp = MAKE_SATP(p->pagetable);
   uint64 trampoline_userret = TRAMPOLINE + (userret - trampoline);
   ((void (*)(uint64))trampoline_userret)(satp);
 }
 
-// Register current process as waiting for wakeups on chan.
 void
 sleep_prepare(void *chan)
 {
@@ -556,9 +456,6 @@ sleep_prepare(void *chan)
   release(&p->lock);
 }
 
-// Put the thread to sleep.  Assumes sleep_prepare() was called before.
-// If the channel registered by sleep_prepare() has been woken up in
-// the meantime, do not go to sleep, and instead return immediately.
 void
 sleep(void)
 {
@@ -572,7 +469,6 @@ sleep(void)
   release(&p->lock);
 }
 
-// Wake up all processes sleeping on channel chan.
 void
 wakeup(void *chan)
 {
@@ -581,12 +477,8 @@ wakeup(void *chan)
   for (p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
     if (p->chan == chan) {
-      // If the process is waiting for wakeups on this channel,
-      // signal that the wakeup happened by clearing p->chan.
       p->chan = 0;
 
-      // If this waiting process has gotten so far as to actually
-      // go to sleep, also set it back to RUNNING.
       if (p->state == SLEEPING) {
         p->state = RUNNABLE;
       }
@@ -595,9 +487,6 @@ wakeup(void *chan)
   }
 }
 
-// Kill the process with the given pid.
-// The victim won't exit until it tries to return
-// to user space (see usertrap() in trap.c).
 int
 kkill(int pid)
 {
@@ -608,7 +497,6 @@ kkill(int pid)
     if (p->pid == pid) {
       p->killed = 1;
       if (p->state == SLEEPING) {
-        // Wake process from sleep().
         p->state = RUNNABLE;
       }
       release(&p->lock);
@@ -638,9 +526,6 @@ killed(struct proc *p)
   return k;
 }
 
-// Copy to either a user address, or kernel address,
-// depending on usr_dst.
-// Returns 0 on success, -1 on error.
 int
 either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
 {
@@ -653,9 +538,6 @@ either_copyout(int user_dst, uint64 dst, void *src, uint64 len)
   }
 }
 
-// Copy from either a user address, or kernel address,
-// depending on usr_src.
-// Returns 0 on success, -1 on error.
 int
 either_copyin(void *dst, int user_src, uint64 src, uint64 len)
 {
@@ -668,21 +550,16 @@ either_copyin(void *dst, int user_src, uint64 src, uint64 len)
   }
 }
 
-// Print a process listing to console.  For debugging.
-// Runs when user types ^P on console.
-// No lock to avoid wedging a stuck machine further.
 void
 procdump(void)
 {
   static char *states[] = {
-    // clang-format off
     [UNUSED]    = "unused",
     [USED]      = "used",
     [SLEEPING]  = "sleep ",
     [RUNNABLE]  = "runble",
     [RUNNING]   = "run   ",
     [ZOMBIE]    = "zombie"
-    // clang-format on
   };
   struct proc *p;
   char *state;

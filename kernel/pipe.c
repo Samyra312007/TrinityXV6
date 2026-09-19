@@ -13,10 +13,10 @@
 struct pipe {
   struct spinlock lock;
   char data[PIPESIZE];
-  uint nread;    // number of bytes read
-  uint nwrite;   // number of bytes written
-  int readopen;  // read fd is still open
-  int writeopen; // write fd is still open
+  uint nread;
+  uint nwrite;
+  int readopen;
+  int writeopen;
 };
 
 int
@@ -85,7 +85,7 @@ pipewrite(struct pipe *pi, uint64 addr, int n)
       release(&pi->lock);
       return -1;
     }
-    if (pi->nwrite == pi->nread + PIPESIZE) { //DOC: pipewrite-full
+    if (pi->nwrite == pi->nread + PIPESIZE) {
       wakeup(&pi->nread);
       sleep_prepare(&pi->nwrite);
       release(&pi->lock);
@@ -116,17 +116,17 @@ piperead(struct pipe *pi, uint64 addr, int n)
   char ch;
 
   acquire(&pi->lock);
-  while (pi->nread == pi->nwrite && pi->writeopen) { //DOC: pipe-empty
+  while (pi->nread == pi->nwrite && pi->writeopen) {
     if (killed(pr)) {
       release(&pi->lock);
       return -1;
     }
-    sleep_prepare(&pi->nread); //DOC: piperead-sleep
+    sleep_prepare(&pi->nread);
     release(&pi->lock);
     sleep();
     acquire(&pi->lock);
   }
-  for (i = 0; i < n; i++) { //DOC: piperead-copy
+  for (i = 0; i < n; i++) {
     if (pi->nread == pi->nwrite)
       break;
     ch = pi->data[pi->nread % PIPESIZE];
@@ -137,7 +137,7 @@ piperead(struct pipe *pi, uint64 addr, int n)
     }
     pi->nread++;
   }
-  wakeup(&pi->nwrite); //DOC: piperead-wakeup
+  wakeup(&pi->nwrite);
   release(&pi->lock);
   return i;
 }

@@ -5,7 +5,7 @@
 #include <fcntl.h>
 #include <assert.h>
 
-#define stat xv6_stat // avoid clash with host struct stat
+#define stat xv6_stat
 #include "kernel/types.h"
 #include "kernel/fs.h"
 #include "kernel/stat.h"
@@ -22,14 +22,12 @@
 
 #define NINODES 200
 
-// Disk layout:
-// [ boot block | sb block | log | inode blocks | free bit map | data blocks ]
 
 int nbitmap = FSSIZE / BPB + 1;
 int ninodeblocks = NINODES / IPB + 1;
-int nlog = LOGBLOCKS + 1; // Header followed by LOGBLOCKS data blocks.
-int nmeta;   // Number of meta blocks (boot, sb, nlog, inode, bitmap)
-int nblocks; // Number of data blocks
+int nlog = LOGBLOCKS + 1;
+int nmeta;
+int nblocks;
 
 int fsfd;
 struct superblock sb;
@@ -46,7 +44,6 @@ uint ialloc(ushort type);
 void iappend(uint inum, void *p, int n);
 void die(const char *);
 
-// convert to riscv byte order
 ushort
 xshort(ushort x)
 {
@@ -92,7 +89,6 @@ main(int argc, char *argv[])
   if (fsfd < 0)
     die(argv[1]);
 
-  // 1 fs block = 1 disk sector
   nmeta = 2 + nlog + ninodeblocks + nbitmap;
   nblocks = FSSIZE - nmeta;
 
@@ -109,7 +105,7 @@ main(int argc, char *argv[])
     "nmeta %d (boot, super, log blocks %u, inode blocks %u, bitmap blocks %u) blocks %d total %d\n",
     nmeta, nlog, ninodeblocks, nbitmap, nblocks, FSSIZE);
 
-  freeblock = nmeta; // the first free block that we can allocate
+  freeblock = nmeta;
 
   for (i = 0; i < FSSIZE; i++)
     wsect(i, zeroes);
@@ -132,7 +128,6 @@ main(int argc, char *argv[])
   iappend(rootino, &de, sizeof(de));
 
   for (i = 2; i < argc; i++) {
-    // get rid of "user/"
     char *shortname;
     if (strncmp(argv[i], "user/", 5) == 0)
       shortname = argv[i] + 5;
@@ -144,10 +139,6 @@ main(int argc, char *argv[])
     if ((fd = open(argv[i], 0)) < 0)
       die(argv[i]);
 
-    // Skip leading _ in name when writing to file system.
-    // The binaries are named _rm, _cat, etc. to keep the
-    // build operating system from trying to execute them
-    // in place of system binaries like rm and cat.
     if (shortname[0] == '_')
       shortname += 1;
 
@@ -166,7 +157,6 @@ main(int argc, char *argv[])
     close(fd);
   }
 
-  // fix size of root inode dir
   rinode(rootino, &din);
   off = xint(din.size);
   off = ((off / BSIZE) + 1) * BSIZE;
@@ -267,7 +257,6 @@ iappend(uint inum, void *xp, int n)
 
   rinode(inum, &din);
   off = xint(din.size);
-  // printf("append inum %d at off %d sz %d\n", inum, off, n);
   while (n > 0) {
     fbn = off / BSIZE;
     assert(fbn < MAXFILE);

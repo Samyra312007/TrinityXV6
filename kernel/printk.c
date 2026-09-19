@@ -1,6 +1,3 @@
-//
-// formatted console output -- printk, panic.
-//
 
 #include <stdarg.h>
 
@@ -15,10 +12,9 @@
 #include "defs.h"
 #include "proc.h"
 
-volatile int panicking = 0; // printing a panic message
-volatile int panicked = 0;  // spinning forever at end of a panic
+volatile int panicking = 0;
+volatile int panicked = 0;
 
-// lock to avoid interleaving concurrent printk's.
 static struct {
   struct spinlock lock;
 } pr;
@@ -59,7 +55,6 @@ printptr(uint64 x)
     consputc(digits[x >> (sizeof(uint64) * 8 - 4)]);
 }
 
-// Print to the console.
 int
 printk(char *fmt, ...)
 {
@@ -121,7 +116,6 @@ printk(char *fmt, ...)
     } else if (c0 == 0) {
       break;
     } else {
-      // Print unknown % sequence to draw attention.
       consputc('%');
       consputc(c0);
     }
@@ -140,7 +134,7 @@ panic(char *s)
   panicking = 1;
   printk("panic: ");
   printk("%s\n", s);
-  panicked = 1; // freeze uart output from other CPUs
+  panicked = 1;
   for (;;)
     ;
 }

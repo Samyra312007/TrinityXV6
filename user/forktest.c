@@ -1,5 +1,3 @@
-// Test that fork fails gracefully.
-// Tiny executable so that the limit can be filling the proc table.
 
 #include "kernel/types.h"
 #include "kernel/stat.h"

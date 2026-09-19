@@ -9,7 +9,6 @@
 
 static int loadseg(pde_t *, uint64, struct inode *, uint, uint);
 
-// map ELF permissions to PTE permission bits.
 int
 flags2perm(int flags)
 {
@@ -21,9 +20,6 @@ flags2perm(int flags)
   return perm;
 }
 
-//
-// the implementation of the exec() system call
-//
 int
 kexec(char *path, char **argv)
 {
@@ -38,25 +34,21 @@ kexec(char *path, char **argv)
 
   begin_op();
 
-  // Open the executable file.
   if ((ip = namei(path)) == 0) {
     end_op();
     return -1;
   }
   ilock(ip);
 
-  // Read the ELF header.
   if (readi(ip, 0, (uint64)&elf, 0, sizeof(elf)) != sizeof(elf))
     goto bad;
 
-  // Is this really an ELF file?
   if (elf.magic != ELF_MAGIC)
     goto bad;
 
   if ((pagetable = proc_pagetable(p)) == 0)
     goto bad;
 
-  // Load program into memory.
   for (i = 0, off = elf.phoff; i < elf.phnum; i++, off += sizeof(ph)) {
     if (readi(ip, 0, (uint64)&ph, off, sizeof(ph)) != sizeof(ph))
       goto bad;
@@ -83,9 +75,6 @@ kexec(char *path, char **argv)
   p = myproc();
   uint64 oldsz = p->sz;
 
-  // Allocate some pages at the next page boundary.
-  // Make the first inaccessible as a stack guard.
-  // Use the rest as the user stack.
   sz = PGROUNDUP(sz);
   uint64 sz1;
   if ((sz1 = uvmalloc(pagetable, sz, sz + (USERSTACK + 1) * PGSIZE, PTE_W)) ==
@@ -96,11 +85,9 @@ kexec(char *path, char **argv)
   sp = sz;
   stackbase = sp - USERSTACK * PGSIZE;
 
-  // Copy argument strings into new stack, remember their
-  // addresses in ustack[].
   for (argc = 0; argv[argc]; argc++) {
     sp -= strlen(argv[argc]) + 1;
-    sp -= sp % 16; // riscv sp must be 16-byte aligned
+    sp -= sp % 16;
     if (sp < stackbase)
       goto bad;
     if (copyout(pagetable, sz, sp, argv[argc], strlen(argv[argc]) + 1) < 0)
@@ -109,7 +96,6 @@ kexec(char *path, char **argv)
   }
   ustack[argc] = 0;
 
-  // push a copy of ustack[], the array of argv[] pointers.
   sp -= (argc + 1) * sizeof(uint64);
   sp -= sp % 16;
   if (sp < stackbase)
@@ -118,26 +104,21 @@ kexec(char *path, char **argv)
       0)
     goto bad;
 
-  // a0 and a1 contain arguments to user main(argc, argv)
-  // argc is returned via the system call return
-  // value, which goes in a0.
   p->trapframe->a1 = sp;
 
-  // Save program name for debugging.
   for (last = s = path; *s; s++)
     if (*s == '/')
       last = s + 1;
   safestrcpy(p->name, last, sizeof(p->name));
 
-  // Commit to the user image.
   oldpagetable = p->pagetable;
   p->pagetable = pagetable;
   p->sz = sz;
-  p->trapframe->epc = elf.entry; // initial program counter = ulib.c:start()
-  p->trapframe->sp = sp;         // initial stack pointer
+  p->trapframe->epc = elf.entry;
+  p->trapframe->sp = sp;
   proc_freepagetable(oldpagetable, oldsz);
 
-  return argc; // this ends up in a0, the first argument to main(argc, argv)
+  return argc;
 
 bad:
   if (pagetable)
@@ -149,10 +130,6 @@ bad:
   return -1;
 }
 
-// Load an ELF program segment into pagetable at virtual address va.
-// va must be page-aligned
-// and the pages from va to va+sz must already be mapped.
-// Returns 0 on success, -1 on failure.
 static int
 loadseg(pagetable_t pagetable, uint64 va, struct inode *ip, uint offset,
         uint sz)

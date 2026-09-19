@@ -30,11 +30,7 @@ OBJS = \
   $K/plic.o \
   $K/virtio_disk.o
 
-# riscv64-unknown-elf- or riscv64-linux-gnu-
-# perhaps in /opt/riscv/bin
-#TOOLPREFIX = 
 
-# Try to infer the correct TOOLPREFIX if not set
 ifndef TOOLPREFIX
 TOOLPREFIX := $(shell if riscv64-unknown-elf-objdump -i 2>&1 | grep 'elf64-big' >/dev/null 2>&1; \
 	then echo 'riscv64-unknown-elf-'; \
@@ -60,12 +56,11 @@ LD = $(TOOLPREFIX)ld
 OBJCOPY = $(TOOLPREFIX)objcopy
 OBJDUMP = $(TOOLPREFIX)objdump
 
-# Deterministic builds.
 DETFLAGS = -ffile-prefix-map=$(CURDIR)=.
 
 CFLAGS = -Wall -Werror -Wno-unknown-attributes -O -fno-omit-frame-pointer -ggdb -gdwarf-2
 CFLAGS += $(DETFLAGS)
-CFLAGS += -march=rv64gc
+CFLAGS += -march=rv64gc -mabi=lp64
 CFLAGS += -std=gnu99
 CFLAGS += -MD
 CFLAGS += -mcmodel=medany
@@ -80,7 +75,6 @@ CFLAGS += -fno-builtin-printf -fno-builtin-fprintf -fno-builtin-vprintf
 CFLAGS += -I.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
-# Disable PIE when possible (for Ubuntu 16.10 toolchain)
 ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]no-pie'),)
 CFLAGS += -fno-pie -no-pie
 endif
@@ -88,7 +82,7 @@ ifneq ($(shell $(CC) -dumpspecs 2>/dev/null | grep -e '[^f]nopie'),)
 CFLAGS += -fno-pie -nopie
 endif
 
-LDFLAGS = -z max-page-size=4096
+LDFLAGS = -m elf64lriscv -z max-page-size=4096
 
 $K/kernel: $(OBJS) $K/kernel.ld
 	$(LD) $(LDFLAGS) -T $K/kernel.ld -o $K/kernel $(OBJS) 
@@ -96,7 +90,7 @@ $K/kernel: $(OBJS) $K/kernel.ld
 	$(OBJDUMP) -t $K/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$$/d' > $K/kernel.sym
 
 $K/%.o: $K/%.S
-	$(CC) -march=rv64gc -g $(DETFLAGS) -c -o $@ $<
+	$(CC) -march=rv64gc -mabi=lp64 -g $(DETFLAGS) -c -o $@ $<
 
 tags: $(OBJS)
 	etags kernel/*.S kernel/*.c
@@ -115,22 +109,17 @@ $U/usys.o : $U/usys.S
 	$(CC) $(CFLAGS) -c -o $U/usys.o $U/usys.S
 
 $U/_forktest: $U/forktest.o $(ULIB)
-	# forktest has less library code linked in - needs to be small
-	# in order to be able to max out the proc table.
 	$(LD) $(LDFLAGS) -N -e main -Ttext 0 -o $U/_forktest $U/forktest.o $U/ulib.o $U/usys.o
 	$(OBJDUMP) -S $U/_forktest > $U/forktest.asm
 
 mkfs/mkfs: mkfs/mkfs.c $K/fs.h $K/param.h
 	gcc -Wno-unknown-attributes -I. -o mkfs/mkfs mkfs/mkfs.c
 
-# Prevent deletion of intermediate files, e.g. cat.o, after first build, so
-# that disk image changes after first build are persistent until clean.  More
-# details:
-# http://www.gnu.org/software/make/manual/html_node/Chained-Rules.html
 .PRECIOUS: %.o
 
 UPROGS=\
 	$U/_cat\
+	$U/_bench\
 	$U/_echo\
 	$U/_forktest\
 	$U/_grep\
@@ -164,9 +153,7 @@ clean:
         $U/usys.S \
 	$(UPROGS)
 
-# try to generate a unique GDB port
 GDBPORT = $(shell expr `id -u` % 5000 + 25000)
-# QEMU's gdb stub command line changed in 0.11
 QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
@@ -194,8 +181,8 @@ print-gdbport:
 
 QEMU_VERSION := $(shell $(QEMU) --version | head -n 1 | sed -E 's/^QEMU emulator version ([0-9]+\.[0-9]+)\..*/\1/')
 check-qemu-version:
-	@if [ "$(shell echo "$(QEMU_VERSION) >= $(MIN_QEMU_VERSION)" | bc)" -eq 0 ]; then \
-		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION)"; \
+	@if [ "$$(printf '%s\n' "$(MIN_QEMU_VERSION)" "$(QEMU_VERSION)" | sort -V | head -n 1)" != "$(MIN_QEMU_VERSION)" ]; then \
+		echo "ERROR: Need qemu version >= $(MIN_QEMU_VERSION) (found $(QEMU_VERSION))"; \
 		exit 1; \
 	fi
 

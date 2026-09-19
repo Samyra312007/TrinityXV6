@@ -1,4 +1,3 @@
-// init: The initial user-level program
 
 #include "kernel/types.h"
 #include "kernel/stat.h"
@@ -20,8 +19,8 @@ main(void)
     mknod("console", CONSOLE, 0);
     open("console", O_RDWR);
   }
-  dup(0); // stdout
-  dup(0); // stderr
+  dup(0);
+  dup(0);
 
   for (;;) {
     printf("init: starting sh\n");
@@ -37,17 +36,13 @@ main(void)
     }
 
     for (;;) {
-      // this call to wait() returns if the shell exits,
-      // or if a parentless process exits.
       wpid = wait((int *)0);
       if (wpid == pid) {
-        // the shell exited; restart it.
         break;
       } else if (wpid < 0) {
         printf("init: wait returned an error\n");
         exit(1);
       } else {
-        // it was a parentless process; do nothing.
       }
     }
   }

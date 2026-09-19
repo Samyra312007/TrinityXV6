@@ -1,12 +1,5 @@
 #!/usr/bin/env python3
 
-#
-# python script that tests xv6 without having to boot it and type to its shell
-#
-# ./test-xv6.py usertests  (runs usertests)
-# ./test-xv6.py -q usertests (runs the quick tests of usertests)
-# ./test-xv6.py crash  (runs the crash tests)
-# ./test-xv6.py log (runs the log crash test)
 
 import argparse, os, inspect, re, signal, subprocess, sys, time
 from subprocess import run
@@ -103,9 +96,6 @@ class QEMU(object):
             self.error(*regexps)
         return found
 
-    # Print the lines matching regexp that have arrived since the last
-    # call.  A trailing partial line is left for the next call, so that
-    # each line is printed once, after all of it has been read.
     def progress(self, regexp):
         end = self.output.rfind("\n") + 1
         if end <= self.reported:
