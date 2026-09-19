@@ -1,0 +1,21 @@
+# tests/log — MIT #3 concurrent logging (week 9)
+
+Stub created week 2 (design gate). Log header format frozen in docs/design.md §7.1.
+
+## Planned tests
+
+- `lg-nwriters`: N threads (1, 2, 4, 8) each create+write+unlink files concurrently;
+  per-N throughput recorded and compared against stock-log baseline
+  (bench/baseline.txt create = 1.6 ms/txn @ CPUS=1).
+- `lg-crash-before`: kill QEMU mid-commit (before install) → reboot → FS consistent,
+  no committed-op visibility.
+- `lg-crash-after`: kill QEMU just after install → reboot → committed ops visible,
+  FS consistent (recovery replay of loghdr txseq).
+- `lg-assert`: run with `log_assert` invariants enabled (outstanding credits zero at
+  commit end, no dirty blocks outside tx) across all other tests.
+
+## Pass criteria
+
+Concurrent writers ≥ stock-log throughput at N=4 (scaling documented); both crash
+tests recover cleanly via scripted reboot check; zero assert trips in a full suite
+run at CPUS=2.

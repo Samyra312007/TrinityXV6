@@ -1,0 +1,22 @@
+# tests/snap — MIT #5 snapshots + COW (week 10)
+
+Stub created week 2 (design gate). Superblock format frozen in docs/design.md §7.2.
+
+## Planned tests
+
+- `sn-roundtrip`: write pattern A → snapshot_create → overwrite pattern B → read back:
+  snapshot read shows A, live read shows B; snapshot_restore flips them; restore's
+  auto-snapshot preserves B.
+- `sn-chain`: 3 chained snapshots with progressive writes; every version readable
+  byte-exact through a snapshot-read helper.
+- `sn-space`: `snap_blocks` counter equals count of COW-copied blocks (no unbounded
+  growth); `snapshot_delete` reclaims only unpinned blocks.
+- `sn-enospc`: fill disk until COW allocation fails → writes return -1, kernel never
+  panics, FS stays consistent, delete frees space and writes resume.
+- `sn-mmap`: file-backed MAP_SHARED write to snapshotted file COWs correctly
+  (joint with H fault path, docs/design.md §8 Q4).
+
+## Pass criteria
+
+Round-trip + chain byte-exact; space accounting matches COW-copy count; ENOSPC is a
+clean -1; restore round-trip preserves both versions; 3 consecutive green runs.

@@ -1,0 +1,21 @@
+# tests/threads — MIT #15-A kernel threads (weeks 3–4)
+
+Stub created week 2 (design gate). Programs land in `user/` as written; this file
+tracks the planned set + pass criteria.
+
+## Planned tests
+
+- `t-smoke`: parent + one child thread print distinct messages from separate kstacks;
+  verified in GDB (break `swtch`, confirm distinct `sp` + shared `pagetable`).
+- `t-counter`: N threads × M increments on shared counter with user spinlock; final
+  value exact.
+- `t-pipe`: producer/consumer threads through a pipe using `thread_yield`; no lost
+  items, no deadlock.
+- `t-churn`: create/join loop (N=8 threads × 100 rounds); no kstack leak (free-frame
+  count returns to start).
+
+## Pass criteria
+
+All four complete under `CPUS=1` and `CPUS=2` with exact expected output; free-frame
+count stable across `t-churn`; main-thread exit during live children tears down
+cleanly (decision D1); `fork()` from multithreaded proc returns -1 (decision D2).

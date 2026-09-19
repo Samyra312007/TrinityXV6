@@ -1,0 +1,22 @@
+# tests/mmap — MIT #11 mmap + MIT #14 megapages (week 8)
+
+Stub created week 2 (design gate). Syscall semantics in docs/design.md §2.3.
+
+## Planned tests
+
+- `mm-shared`: two procs map the same file MAP_SHARED; counter increments through the
+  mapping are visible to both; `msync` + remount-read shows persisted value.
+- `mm-private`: MAP_PRIVATE write changes only the mapper's view; file contents and
+  other procs see original bytes.
+- `mm-msync`: dirty a page, msync, power-cut-style reboot (QEMU relaunch), file holds
+  flushed bytes (commit survived via log).
+- `mm-megapage`: 2 MB-aligned anon region maps as megapage (debug counter proves
+  L1-leaf PTE in use); fault-latency measured 4K vs 2M; partial munmap demotes
+  correctly (counter drops, region still functional).
+- `mm-faultlat`: bench harness for §"Measure" line of week 8: cycles/fault 4K vs 2M,
+  mmap read vs `read()` loop on the same file.
+
+## Pass criteria
+
+shared/private/msync round-trips pass; megapage counter shows promotion then demotion
+with no stale-TLB crashes; latency numbers recorded in bench/baseline.txt.

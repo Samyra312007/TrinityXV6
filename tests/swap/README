@@ -1,0 +1,19 @@
+# tests/swap — MIT #10 paging to disk (week 7)
+
+Stub created week 2 (design gate). Swap format frozen in docs/design.md §7.3.
+
+## Planned tests
+
+- `sw-big`: allocate + touch a working set 2× RAM (128 MB → 256 MB); completes with
+  correct checksum over touched pages.
+- `sw-storm`: random read/write fault storm over a swap-backed region; validates page
+  contents by pattern after every pass.
+- `sw-kill`: kill a proc mid-swap-in (parent kills at random tick); no panic; swap
+  slots + frames fully reclaimed (counter check); other procs unaffected.
+- `sw-counters`: `pgfault / swapout / swapin / oom-kill` counters reported before/after
+  each test and compared against expected ranges.
+
+## Pass criteria
+
+`sw-big` completes; no leaks after 20 `sw-kill` iterations; no panic across 3
+consecutive `sw-storm` runs at CPUS=1 and CPUS=2.

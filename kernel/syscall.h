@@ -20,3 +20,15 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 #define SYS_sync   22
+#define SYS_thread_create  23
+#define SYS_thread_exit    24
+#define SYS_thread_join    25
+#define SYS_thread_yield   26
+#define SYS_mmap   27
+#define SYS_munmap 28
+#define SYS_msync  29
+#define SYS_snapshot_create  30
+#define SYS_snapshot_list    31
+#define SYS_snapshot_restore 32
+#define SYS_snapshot_delete  33
+#define SYS_namestat 34

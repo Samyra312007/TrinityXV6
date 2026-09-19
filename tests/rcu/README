@@ -1,0 +1,20 @@
+# tests/rcu — MIT #22 RCU + lock-free name cache (week 11)
+
+Stub created week 2 (design gate). Cache/RCU API in docs/design.md §2.5.
+
+## Planned tests
+
+- `rc-loop`: N threads hammer `open/stat/close` on a shared directory tree; total
+  lookup counter advances, `namestat` hit-rate ≥ 95% after warmup.
+- `rc-storm`: concurrent create/unlink/rename storm across N threads while lookups
+  run; no use-after-free (debug-poisoned dentries trip an assert), no wrong-inode
+  opens (each fd fstat-validated against expected inum).
+- `rc-grace`: hold + release read-side sections at max rate; grace_periods counter
+  advances; deferred frees complete (freed-entry counter matches).
+- `rc-hitrate`: hot-path bench vs stock `namei` (baseline: openclose 16 µs @ CPUS=1);
+  speedup recorded in bench/baseline.txt.
+
+## Pass criteria
+
+Storm test passes 3 consecutive runs at CPUS=2 with zero UAF/wrong-inode; hit-rate +
+speedup numbers recorded; lite-fallback (locked cache) only per plan risk rule.

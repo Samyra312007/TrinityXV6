@@ -1,0 +1,19 @@
+# tests/schedact — MIT #15-B scheduler activations (weeks 5–6)
+
+Stub created week 2 (design gate). Depends on H's VP/upcall layer (design §1/§6).
+
+## Planned tests
+
+- `sa-pipe`: 2 user threads, reader blocks in pipe read, writer fills — reader's VP
+  gets blocked upcall, other threads keep running; no stall of unrelated threads.
+- `sa-2vp8t`: 2 VPs × 8 user threads, shared work counter; completes with expected
+  total; scheduler never spins (block-based mutex).
+- `sa-preempt`: timer-driven preempted upcall round-robins 4 CPU-bound threads;
+  per-thread progress counters all advance.
+- `sa-storm`: create/block/wake churn across VPs; no lost wakeups (channel accounting
+  in user scheduler), no double-dispatch.
+
+## Pass criteria
+
+Blocking I/O never stalls non-blocked threads; 2-VP demo completes at CPUS=2 with
+zero lost wakeups across 3 consecutive runs.
